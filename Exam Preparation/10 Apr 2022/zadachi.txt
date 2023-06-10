@@ -1,0 +1,88 @@
+2.INSERT
+INSERT INTO `actors` (`first_name`, `last_name`, `birthdate`, `height`, `awards`, `country_id`)
+
+(SELECT REVERSE(a.`first_name`), REVERSE(a.`last_name`), DATE (a.`birthdate` - 2), a.`height` + 10, a.`country_id`, 3
+FROM `actors` as a
+WHERE a.id <= 10);
+
+3.Update
+UPDATE  `movies_additional_info` as mai
+SET mai.`runtime` = mai.`runtime` - 10
+WHERE mai.id BETWEEN 15 AND 25 ;
+
+4.DELETE
+DELETE  FROM `countries` as c
+WHERE c.id NOT IN (SELECT country_id FROM movies)
+
+5.
+SELECT `id`, `name`, `continent`, `currency` FROM `countries`
+ORDER by currency DESC, id;
+
+6.
+SELECT m.`id`, m.`title`, mai.`runtime`, mai.`budget`, mai.`release_date`
+FROM `movies` as m
+JOIN `movies_additional_info` AS mai on m.`movie_info_id` = mai.`id`
+WHERE  YEAR(mai.`release_date`) BETWEEN 1996 AND 1999
+ORDER BY mai.`runtime` ASC, m.id
+limit 20;
+
+7.
+SELECT CONCAT(a.`first_name`, ' ' , a.`last_name`) as full_name,
+CONCAT(REVERSE(a.`last_name`),char_length(a.`last_name`),'@cast.com') as email,
+(2022 - YEAR(a.`birthdate`)) as age,
+a.`height` FROM `actors` as a 
+WHERE a.id NOT IN (SELECT `actor_id` FROM `movies_actors`)
+ORDER BY a.`height` ASC;
+
+8.
+SELECT c.`name`, COUNT(m.`id`) as movies_count
+FROM `countries` as c
+JOIN `movies` as m 
+ON c.`id` = m.`country_id`
+GROUP by c.`name`
+HAVING movies_count >=7
+ORDER by c.`name` desc;
+
+
+
+
+9
+SELECT  m.`title`,
+CASE
+ WHEN mai.`rating` <= 4 THEN "poor"
+ WHEN mai.`rating` <= 7 THEN "good"
+ WHEN mai.`rating` > 7 THEN "excellent"
+ END
+ AS raiting,
+ IF (mai.`has_subtitles` = 1, "english", '-') as subtitles,
+ mai.`budget`
+FROM `movies_additional_info` AS `mai`
+JOIN `movies` AS m on mai.`id` = m.`movie_info_id`
+ORDER BY mai.`budget` DESC;
+
+11.
+CREATE FUNCTION udf_actor_history_movies_count(full_name VARCHAR(50)) 
+RETURNS INT 
+DETERMINISTIC
+BEGIN
+	DECLARE history_movies INT;
+    SET history_movies := (SELECT COUNT(g.`name`) movies 
+    FROM `actors` as a 
+    JOIN `movies_actors` as ma ON ma.actor_id = a.id
+    JOIN `genres_movies` as gm ON gm.movie_id = ma.movie_id
+    JOIN `genres`as g ON gm.genre_id = g.id
+    WHERE CONCAT(a.`first_name`, ' ' ,a.`last_name`) = full_name AND g.`name` = 'History'
+	GROUP BY g.name);
+    RETURN history_movies;
+END
+
+12.
+CREATE PROCEDURE udp_award_movie (movie_title VARCHAR(50))
+BEGIN	     
+    UPDATE actors a
+        JOIN movies_actors ma on a.id = ma.actor_id
+        JOIN movies m on m.id = ma.movie_id
+    SET  a.awards = a.awards + 1
+    WHERE m.title = movie_title;
+
+END

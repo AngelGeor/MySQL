@@ -1,0 +1,121 @@
+#2 Insert
+INSERT INTO `games` (`name`, `rating`, `budget`, `team_id`)
+(SELECT lower(REVERSE(substr(t.`name`,2))), t.`id`, t.`leader_id` * 1000, t.`id` FROM `teams` as t
+WHERE t.`id` BETWEEN 1 and 9);
+
+#3. Update
+Update `employees` as e
+SET e.`salary` = e.`salary` + 1000
+WHERE e.`salary` < 5000 AND e.age < 40 AND e.id IN (SELECT leader_id FROM `teams`);
+
+#4. DELETE
+DELETE g
+FROM games AS g
+JOIN games_categories AS gc
+ON g.id = gc.game_id
+WHERE gc.game_id IS NULL AND g.release_date IS NULL;
+
+5.
+SELECT `first_name`, `last_name`, `age`, `salary`, `happiness_level` 
+FROM employees 
+ORDER BY `salary`, `id`;
+
+
+6.
+SELECT t.`name` as `team_name`,  a.`name` as address_name, char_length(a.`name`) as count_of_characters
+FROM `teams` as t
+LEFT JOIN `offices` as o ON o.id = t.office_id
+LEFT JOIN `addresses` as a ON o.address_id = a.id
+WHERE o.website is NOT NULL
+ORDER BY t.`name`, address_name;
+
+7.
+SELECT c.`name` as `name`,
+ COUNT(g.`id`) as games_count,
+ ROUND(AVG(g.`budget`) ,2) as avg_budget,
+ MAX(g.`rating`) as max_rating
+FROM categories as c
+JOIN  `games_categories` as gc ON c.id = gc.category_id
+JOIN `games` as g on g.id = gc.game_id
+GROUP BY c.id
+HAVING max_rating >= 9.5
+ORDER BY games_count DESC , c.`name`;
+
+8.
+SELECT 
+g.`name`,
+ g.`release_date`,
+ CONCAT(LEFT(g.`description`,10),'...') as summary ,
+ CASE 
+WHEN MONTH(g.`release_date`) BETWEEN 1 AND 3 THEN "Q1"
+WHEN MONTH(g.`release_date`) BETWEEN 4 AND 6 THEN "Q2"
+WHEN MONTH(g.`release_date`) BETWEEN 7 AND 9 THEN "Q3"
+WHEN MONTH(g.`release_date`) BETWEEN 10 AND 12 THEN "Q4"
+END  AS quater,
+t.`name`
+FROM `games` as g
+JOIN `teams` as t
+ON g.team_id = t.id
+WHERE MONTH(g.`release_date`) % 2 = 0 AND
+year(g.release_date) = 2022 AND
+g.`name` LIKE ("%2") 
+ORDER by quater;
+
+ 9.
+
+SELECT g.`name`,
+CASE
+WHEN g.`budget` < 50000 THEN "Normal budget"
+ELSE "Insufficient budget"
+END as budget_level,
+t.`name` as team_name,
+a.`name` as address_name
+FROM `games` as g
+LEFT JOIN `games_categories` as gc ON g.id = gc.game_id
+JOIN `teams` as t ON g.team_id = t.id
+JOIN `offices` as o ON o.id = t.office_id
+JOIN `addresses` as a ON a.id = o.address_id
+WHERE g.`release_date` is NULL and gc.category_id IS NULL
+ORDER BY g.name;
+
+
+10.
+DELIMITER %%
+CREATE FUNCTION udf_game_info_by_name (game_name VARCHAR (20))
+RETURNS VARCHAR(255)
+DETERMINISTIC
+BEGIN
+	DECLARE info VARCHAR (255);
+	DECLARE team_name VARCHAR (40);
+	DECLARE address_text VARCHAR (50);
+	
+	SET team_name := (SELECT t.`name`
+        	FROM teams AS t 
+        	JOIN games AS g 
+        	ON g.team_id = t.id 
+        	WHERE g.`name` = game_name);
+	
+  	SET address_text := (SELECT a.`name`
+        	FROM addresses AS a
+        	JOIN offices AS o
+        	ON a.id = o.address_id
+        	JOIN teams AS t
+        	ON o.id = t.office_id
+        	WHERE t.`name` = team_name);
+    
+  	SET info := concat_ws(' ', 'The', game_name, 'is developed by a', team_name, 'in an office with an address', address_text);
+  	RETURN info;
+END%%
+
+11.
+
+BEGIN
+	UPDATE games AS g
+	LEFT JOIN games_categories AS c
+    	ON g.id = c.game_id
+    	SET g.budget = g.budget + 100000, 
+		g.release_date = adddate(g.release_date, INTERVAL 1 YEAR)
+	WHERE c.category_id IS NULL 
+		AND g.release_date IS NOT NULL 
+		AND g.rating > min_game_rating;
+END

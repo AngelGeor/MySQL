@@ -1,0 +1,97 @@
+#2.INSERT
+INSERT INTO `clients` (`full_name`, `phone_number`)
+(SELECT CONCAT(`first_name`, ' ', `last_name`), CONCAT('(088) 9999', `id` * 2) FROM `drivers` as d
+WHERE d.`id` BETWEEN 10 and 20);
+
+#3. UPDATE 
+UPDATE `cars` 
+SET `condition` = 'C'
+WHERE mileage >=  800000  OR mileage IS NULL OR year >= 2010;
+
+#4. DELETE
+DELETE FROM `clients` as c
+WHERE char_length(c.`full_name`) > 3 AND c.`id` NOT IN (SELECT `client_id` FROM `courses`);
+
+#5.CARS
+SELECT `make`, `model`, `condition` FROM `cars`
+ORDER BY id;
+
+#6.	Drivers and Cars
+SELECT d.`first_name`, d.`last_name`, c.`make`, c.`model`, c.`mileage`
+FROM `drivers` as d
+JOIN `cars_drivers` as cd ON d.id = cd.driver_id
+JOIN `cars` as c ON c.id = cd.car_id
+WHERE c.mileage IS NOT NULL
+ORDER BY c.mileage DESC, d.`first_name`
+;
+
+#7.	Number of courses for each car
+SELECT c.`id` as car_id, c.`make`, c.`mileage`,
+ COUNT(co.`id`) as count_of_courses, ROUND(AVG(co.bill),2) as avg_bill
+ FROM cars as c LEFT JOIN courses as co ON c.id = co.car_id
+  GROUP BY c.`id`
+  HAVING count_of_courses <> 2
+ ORDER BY count_of_courses DESC, c.id;
+ 
+8.Regular clients
+
+SELECT c.`full_name` ,COUNT(c.id) as count_of_cars , SUM(co.`bill`) as total_sum
+ from `clients` as c JOIN `courses` as co ON co.client_id = c.id
+  where c.`full_name` LIKE '_a%'
+ GROUP BY c.id
+ HAVING count_of_cars >= 2
+    ORDER BY c.`full_name`;
+
+
+
+9.	Full information of courses
+
+SELECT ad.`name` as name,
+IF (HOUR(co.`start`) BETWEEN 6 AND 20, "Day","Night") 
+AS `day_time`,
+co.`bill` as bill,
+cl.`full_name`,
+c.`make`,
+c.`model`,
+cat.`name` as category_name
+FROM addresses as ad JOIN courses as co ON ad.id = co.from_address_id
+JOIN clients as cl ON cl.id = co.client_id
+JOIN cars as c on co.car_id = c.id
+JOIN categories as cat on cat.id = c.category_id
+ORDER BY co.id;
+
+10.
+CREATE FUNCTION udf_courses_by_client (phone_num VARCHAR (20)) 
+RETURNS INT 
+DETERMINISTIC
+BEGIN
+	DECLARE count INT;
+    SET count := ( SELECT COUNT(co.`id`) FROM `courses` as co  JOIN clients as cl on co.client_id = cl.id
+    WHERE phone_num = cl.phone_number);
+	
+	RETURN count;
+END
+
+11.
+DELIMITER $$
+CREATE PROCEDURE udp_courses_by_address (address_name varchar(100))
+BEGIN
+SELECT a.`name`, c.full_name, 
+		CASE
+			WHEN co.bill <= 20 THEN 'Low'
+			WHEN co.bill <= 30 THEN 'Medium'
+            	ELSE 'High'
+        END AS level_of_bill, ca.make, ca.condition, cat.`name`
+	FROM courses AS co
+	JOIN addresses AS a
+	ON a.id = co.from_address_id
+	JOIN clients AS c
+	ON co.client_id = c.id
+	JOIN cars AS ca
+	ON co.car_id = ca.id
+	JOIN categories AS cat
+	ON ca.category_id = cat.id
+	WHERE a.`name` = address_name
+	ORDER BY ca.make, c.full_name;
+END 
+$$ 
